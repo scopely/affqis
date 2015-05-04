@@ -6,6 +6,9 @@ import org.slf4j.{LoggerFactory, Logger}
 import ws.wamp.jawampa.transport.SimpleWampWebsocketListener
 import ws.wamp.jawampa.{WampRouter, WampRouterBuilder}
 
+/**
+ * Router management.
+ */
 case class JawampaRouter(server: SimpleWampWebsocketListener, router: WampRouter)
 
 object JawampaRouter {
@@ -18,7 +21,7 @@ object JawampaRouter {
   def apply(realms: Seq[String]): JawampaRouter = {
     val router: WampRouter = realms.foldLeft(routerBuilder) {addRealm}.build()
     val server: SimpleWampWebsocketListener =
-      new SimpleWampWebsocketListener(router, URI.create(s"ws://0.0.0.0:${RouterConfig.port}/affqis"), null)
+      new SimpleWampWebsocketListener(router, URI.create(RouterConfig.url), null)
 
     log.info("Starting Jawampa server/router...")
     server.start()

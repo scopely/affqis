@@ -9,6 +9,9 @@ import rx.lang.scala.JavaConversions._
 import ws.wamp.jawampa.WampClient.Status
 import ws.wamp.jawampa.{WampClientBuilder, WampClient}
 
+/**
+ * Base trait for DB clients.
+ */
 trait WampDBClient {
   def driver: String
   def realm: String
@@ -22,9 +25,6 @@ trait WampDBClient {
    */
   val jdbcPrefix: String
 
-  val jdbcURI: String =
-    s"jdbc:$jdbcPrefix://${config("host")}:${config("port")}/:${config.getOrElse("db", "")}"
-
   // Initialize our driver.
   Class forName driver
 
@@ -36,7 +36,12 @@ trait WampDBClient {
     .withReconnectInterval(3, TimeUnit.SECONDS)
     .build()
 
-  def connect(user: String, pass: String = ""): Connection = {
+  /**
+   * Connect via JDBC to a database.
+   */
+  def connectJdbc(user: String, host: String, port: Int, db: String, pass: String = ""): Connection = {
+    val jdbcURI: String =
+      s"jdbc:$jdbcPrefix://$host:$port/$db"
     log.info(s"Establishing a connection to $jdbcURI")
     DriverManager.getConnection(jdbcURI, user, pass)
   }

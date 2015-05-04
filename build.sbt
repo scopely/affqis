@@ -1,11 +1,13 @@
 name := "affqis"
 version := "1.0"
 scalaVersion := "2.11.6"
+mainClass := Some("com.scopely.affqis.Main")
 
 resolvers ++= Seq(
   "Cloudera" at "https://repository.cloudera.com/artifactory/cloudera-repos/",
   "Typesafe Releases" at "http://dl.bintray.com/typesafe/maven-releases/",
-  "Jawampa Wamp Stuff" at "https://raw.githubusercontent.com/Matthias247/jawampa/mvn-repo/"
+  "Jawampa Wamp Stuff" at "https://raw.githubusercontent.com/Matthias247/jawampa/mvn-repo/",
+  "Spray" at "http://repo.spray.io/"
 )
 
 libraryDependencies ++= Seq(
@@ -27,5 +29,9 @@ libraryDependencies ++= Seq(
 
   "ch.qos.logback" % "logback-classic" % "1.1.3",
   "ws.wamp.jawampa" % "jawampa" % "0.2.0",
-  "io.reactivex" %% "rxscala" % "0.24.1"
+  "io.reactivex" %% "rxscala" % "0.24.1",
+  "io.spray" %%  "spray-json" % "1.3.1"
 )
+
+packSettings
+packMain := Map("affqis" -> "com.scopely.affqis.Main")
