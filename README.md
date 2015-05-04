@@ -49,8 +49,9 @@ Connection id: a259c6dd-793e-4408-93c5-9d094f546000
 Execution id: execution.e843a88d_7dba_4e0f_91d5_aa12cf76e6a0
 [ { value: 5, type: 'int', name: 'atable.id' },
   { value: 1, type: 'int', name: 'atable.game_id' },
-  { value: 76168, type: 'int', name: 'atable..user_id' },
-  ... and so on for each column, each row ...
+  { value: 76168, type: 'int', name: 'atable.user_id' },
+  ... and so on for each column ...]
+[... next row and so on for each ...]
 
 Done streaming results, closing connection a259c6dd-793e-4408-93c5-9d094f546000
 true
