@@ -22,6 +22,17 @@ class JsonResults(rs: ResultSet) {
   } toMap
 
   /**
+   * Converts an object to a JsValue using the specified function. If obj is null, JsNull is returned.
+   * @param obj Some kind of object.
+   * @param jsType Type converter function.
+   * @tparam T
+   * @return a JsValue for the value.
+   */
+  def toJsVal[T](obj: T, jsType: T => JsValue): JsValue = {
+    Option(obj) map(jsType(_)) getOrElse JsNull
+  }
+
+  /**
    * Given a column index, convert that column's value into a JsValue.
    * @param colIndex index of a column
    * @return a JsValue
@@ -30,10 +41,10 @@ class JsonResults(rs: ResultSet) {
     val colType: Int = meta.getColumnType(colIndex)
 
     val jsonCol: JsValue = colType match {
-        case DECIMAL | DOUBLE  | FLOAT => Option(rs.getBigDecimal(colIndex)) map(JsNumber(_)) getOrElse JsNull
-        case BIGINT  | INTEGER | TINYINT => Option(rs.getInt(colIndex)) map(JsNumber(_)) getOrElse JsNull
-        case BOOLEAN => Option(rs.getBoolean(colIndex)) map(JsBoolean(_)) getOrElse JsNull
-        case _ => Option(rs.getString(colIndex)) map(JsString(_)) getOrElse JsNull
+        case DECIMAL | DOUBLE  | FLOAT => toJsVal(rs.getBigDecimal(colIndex), JsNumber(_: BigDecimal))
+        case BIGINT  | INTEGER | TINYINT => toJsVal(rs.getInt(colIndex), JsNumber(_: Int))
+        case BOOLEAN => toJsVal(rs.getBoolean(colIndex), JsBoolean(_: Boolean))
+        case _ => toJsVal(rs.getString(colIndex), JsString(_: String))
     }
 
     jsonCol
