@@ -22,8 +22,10 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.fasterxml.jackson.databind.node.ArrayNode
 import org.slf4j.{Logger, LoggerFactory}
+import rx.Observable
 import rx.lang.scala.JavaConversions._
-import ws.wamp.jawampa.{ApplicationError, Request, WampClient}
+import rx.lang.scala.Subscription
+import ws.wamp.jawampa.{PubSubData, ApplicationError, Request, WampClient}
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent
@@ -82,8 +84,31 @@ class HiveWampDBClient extends {
   }
 
   /**
-   * Procedure function for executing SQL and streaming results. Returns an event URI
-   * the client can subscribe to for results.
+   * Procedure for streaming the results of a successful query to a client. The idea
+   * is that `executeProc` registers a unique procedure with this function and sends
+   * the proc ID to the client along with the event this guy will stream to.
+   */
+  def streamResults(rs: ResultSet, event: String, proc: Subscription, client: WampClient)(req: Request) = {
+    log.info(s"Looks like they've subscribed to ${event}, sending rows")
+    JsonResults(rs).foreach { row: String => client.publish(event, "row", row) }
+
+    log.info(s"Finished sending rows to ${event}. Letting subscribers know")
+    client.publish(event, "finished")
+
+    log.debug(s"Cleaning up ${event}")
+    rs.close()
+    proc.unsubscribe()
+  }
+
+  /**
+   * Procedure function for executing SQL and streaming results. Replies with an
+   * event URI and a proc URI (two arguments) after the query runs. The client
+   * subscribes to the event and _then_ calls the procedure (unique to this
+   * query) to initiate streaming of results.
+   *
+   * Ideally we'd just wait for our subscriber before we stream rows, but it seems
+   * that until Jawampa supports Wamp V2 Advanced Profile, there is no way to get
+   * subscribers, so we can't even poll for this!
    */
   def executeProc(client: WampClient)(req: Request): Unit = {
     val args: ArrayNode = req.arguments()
@@ -99,17 +124,23 @@ class HiveWampDBClient extends {
 
       // Hive currently doesn't support parameter metadata so the hell with this.
       // val params: Seq[databind.JsonNode] = args.iterator().asScala.toSeq.drop(2)
-      val id: String = UUID.randomUUID().toString
-      val event: String = "execution." + id.replace('-', '_')
+      val id: String = UUID.randomUUID().toString.replace('-', '_')
+      val event: String = "results." + id
+      val proc: String = "stream_results." + id
 
       val rs: Try[ResultSet] = Try(connection.prepareStatement(sql).executeQuery())
 
       rs.map { rs: ResultSet =>
-        req.reply(event)
 
-        JsonResults(rs).foreach { row: String => client.publish(event, "row", row) }
-        client.publish(event, "finished")
-        rs.close()
+        // We're making sub lazy because we're passing it to a function in the definition
+        // itself, which causes a compile error because it's a forward reference at that point.
+        // Making it lazy and then immediately realizing it seems to be the way with the least
+        // amount of indirection to solve this issue. Could use promises or observables, I
+        // guess, but ugh.
+        lazy val sub: Subscription = client.registerProcedure(proc).subscribe(streamResults(rs, event, sub, client) _)
+        sub
+
+        req.reply(event, proc)
       } recover {
         case exn: SQLException =>
           req.replyError("execution_error", id, exn.getMessage)
