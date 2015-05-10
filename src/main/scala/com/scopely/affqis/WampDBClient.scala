@@ -19,6 +19,7 @@ package com.scopely.affqis
 import java.sql.{DriverManager, Connection}
 import java.util.concurrent.TimeUnit
 
+import com.fasterxml.jackson.databind.node.ObjectNode
 import org.slf4j.{Logger, LoggerFactory}
 import rx.lang.scala.schedulers._
 import rx.lang.scala.JavaConversions._
@@ -51,6 +52,26 @@ trait WampDBClient {
     .withInfiniteReconnects()
     .withReconnectInterval(3, TimeUnit.SECONDS)
     .build()
+
+  type ArgSpec = Map[String, Class[_]]
+
+  /**
+   * Validates that args exist and are of the correct type.
+   */
+  def hasArgs(arg: ObjectNode, expected: ArgSpec): Boolean = {
+    expected.forall { case (argName: String, argType: Class[_]) =>
+      if (arg.has(argName)) {
+        argType match {
+          case _: Class[String] => true
+          case _: Class[Int] => arg.canConvertToInt
+          case _: Class[Long] => arg.canConvertToLong
+          case _ => false // I DUNNO WHAT'S HAPPENING
+        }
+      } else {
+        false
+      }
+    }
+  }
 
   /**
    * Connect via JDBC to a database.
