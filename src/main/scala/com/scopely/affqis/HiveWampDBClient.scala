@@ -20,12 +20,11 @@ import java.sql.{Connection, ResultSet, SQLException}
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 import org.slf4j.{Logger, LoggerFactory}
-import rx.Observable
 import rx.lang.scala.JavaConversions._
 import rx.lang.scala.Subscription
-import ws.wamp.jawampa.{PubSubData, ApplicationError, Request, WampClient}
+import ws.wamp.jawampa.{ApplicationError, Request, WampClient}
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent
@@ -59,13 +58,18 @@ class HiveWampDBClient extends {
    * used to execute and close this connection later.
    */
   def connectProc(client: WampClient)(req: Request): Unit = {
-    val args: ArrayNode = req.arguments()
+    val args: ObjectNode = req.keywordArguments()
+    val argSpec: ArgSpec = Map(
+      "user" -> classOf[String],
+      "port" -> classOf[Int],
+      "host" -> classOf[String]
+    )
 
-    if (args.size() >= 3 && args.get(2).canConvertToInt) {
-      val user: String = args.get(0).asText()
-      val host: String = args.get(1).asText()
-      val port: Int = args.get(2).asInt()
-      val database: String = if (args.size() > 3) args.get(3).asText() else "default"
+    if (hasArgs(args, argSpec)) {
+      val user: String = args.get("user").asText()
+      val host: String = args.get("host").asText()
+      val port: Int = args.get("port").asInt()
+      val database: String = if (args.has("database")) args.get("database").asText() else "default"
 
       val id: String = UUID.randomUUID().toString
 
@@ -111,14 +115,16 @@ class HiveWampDBClient extends {
    * subscribers, so we can't even poll for this!
    */
   def executeProc(client: WampClient)(req: Request): Unit = {
-    val args: ArrayNode = req.arguments()
+    val args: ObjectNode = req.keywordArguments()
+    val argSpec: ArgSpec = Map(
+      "connectionId" -> classOf[String],
+      "sql" -> classOf[String]
+    )
 
-    if (args.size() < 2) {
-      req.replyError(new ApplicationError(ApplicationError.INVALID_ARGUMENT))
-    } else {
-      val connectionId: String = args.get(0).asText()
+    if (hasArgs(args, argSpec)) {
+      val connectionId: String = args.get("connectionId").asText()
       val connection: Connection = connections(connectionId)
-      val sql: String = args.get(1).asText()
+      val sql: String = args.get("sql").asText()
 
       log.info(s"Executing SQL on connection $connectionId")
 
@@ -145,6 +151,8 @@ class HiveWampDBClient extends {
         case exn: SQLException =>
           req.replyError("execution_error", id, exn.getMessage)
       }
+    } else {
+      req.replyError(new ApplicationError(ApplicationError.INVALID_ARGUMENT))
     }
   }
 
@@ -152,10 +160,13 @@ class HiveWampDBClient extends {
    * Procedure function for closing a jdbc connection by id.
    */
   def disconnectProc(client: WampClient)(req: Request): Unit = {
-    val args: ArrayNode = req.arguments()
+    val args: ObjectNode = req.keywordArguments()
+    val argSpec: ArgSpec = Map(
+      "connectionId" -> classOf[String]
+    )
 
-    if (args.size() == 1) {
-      val id = args.get(0).asText()
+    if (hasArgs(args, argSpec)) {
+      val id = args.get("connectionId").asText()
 
       connections.get(id).fold {
         req.reply(java.lang.Boolean.valueOf("false"))
