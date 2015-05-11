@@ -149,7 +149,12 @@ class HiveWampDBClient extends {
         req.reply(event, proc)
       } recover {
         case exn: SQLException =>
-          req.replyError("execution_error", id, exn.getMessage)
+          val traceStringWriter: StringWriter = new StringWriter()
+          val traceWriter: PrintWriter = new PrintWriter(traceStringWriter, true)
+          exn.printStackTrace(traceWriter)
+          val trace = traceStringWriter.getBuffer.toString
+          log.error(trace)
+          req.replyError("execution_error", id, trace)
       }
     } else {
       req.replyError(new ApplicationError(ApplicationError.INVALID_ARGUMENT))
