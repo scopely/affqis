@@ -16,7 +16,8 @@
 
 package com.scopely.affqis
 
-import java.sql.{Connection, ResultSet, SQLException}
+import java.io.{PrintWriter, StringWriter}
+import java.sql.{PreparedStatement, Connection, ResultSet, SQLException}
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -92,15 +93,30 @@ class HiveWampDBClient extends {
    * is that `executeProc` registers a unique procedure with this function and sends
    * the proc ID to the client along with the event this guy will stream to.
    */
-  def streamResults(rs: ResultSet, event: String, proc: Subscription, client: WampClient)(req: Request) = {
-    log.info(s"Looks like they've subscribed to ${event}, sending rows")
-    JsonResults(rs).foreach { row: String => client.publish(event, "row", row) }
+  def streamResults(statement: PreparedStatement, event: String,
+                    proc: Subscription, client: WampClient)
+                   (req: Request): Unit = {
 
-    log.info(s"Finished sending rows to ${event}. Letting subscribers know")
+    val rs: Option[ResultSet] = Option(statement.getResultSet)
+
+    rs.fold {
+      log.info(s"Sending update count to ${event}")
+
+      // This is ugh but the type system doesn't much care for publish being overloaded
+      // and us passing a combination of Strings and Ints.
+      client.publish(event, "update_count", statement.getUpdateCount.asInstanceOf[Object])
+      ()
+    } { rs: ResultSet =>
+      log.info(s"Sending rows to ${event}")
+      JsonResults(rs).foreach { row: String => client.publish(event, "row", row) }
+      rs.close()
+    }
+
+    log.info(s"Finished sending results to ${event}. Letting subscribers know")
     client.publish(event, "finished")
+    req.reply()
 
     log.debug(s"Cleaning up ${event}")
-    rs.close()
     proc.unsubscribe()
   }
 
@@ -134,16 +150,19 @@ class HiveWampDBClient extends {
       val event: String = "results." + id
       val proc: String = "stream_results." + id
 
-      val rs: Try[ResultSet] = Try(connection.prepareStatement(sql).executeQuery())
+      val statement: PreparedStatement = connection.prepareStatement(sql)
 
-      rs.map { rs: ResultSet =>
+      val result: Try[Boolean] = Try(statement.execute())
 
+      result.map { wasQuery: Boolean =>
         // We're making sub lazy because we're passing it to a function in the definition
         // itself, which causes a compile error because it's a forward reference at that point.
         // Making it lazy and then immediately realizing it seems to be the way with the least
         // amount of indirection to solve this issue. Could use promises or observables, I
         // guess, but ugh.
-        lazy val sub: Subscription = client.registerProcedure(proc).subscribe(streamResults(rs, event, sub, client) _)
+        lazy val sub: Subscription = client
+          .registerProcedure(proc)
+          .subscribe(streamResults(statement, event, sub, client) _)
         sub
 
         req.reply(event, proc)
