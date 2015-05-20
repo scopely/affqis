@@ -21,12 +21,10 @@ repositories {
 }
 
 configurations {
-    runtime {
-        exclude group: 'com.sun.jdmk'
-        exclude group: 'com.sun.jmx'
-        exclude group: 'javax.jms'
-        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-    }
+    compile.exclude group: 'com.sun.jdmk'
+    compile.exclude group: 'com.sun.jmx'
+    compile.exclude group: 'javax.jms'
+    compile.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
 }
 
 dependencies {
