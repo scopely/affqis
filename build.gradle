@@ -65,6 +65,8 @@ buildDists.dependsOn(installDist, buildDeb, buildRpm)
 buildDeb.mustRunAfter(installDist)
 buildRpm.mustRunAfter(installDist)
 
+// Convenience task to not use JUnit's runner. This is useful for getting pretty
+// console output when running the tests outside of Intellij.
 task specs2(type: JavaExec, dependsOn: testClasses) {
     main = 'org.specs2.runner.files'
     args = ["filesrunner.pattern", ".*Test"]
