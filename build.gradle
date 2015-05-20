@@ -2,6 +2,7 @@ plugins {
     id "nebula.os-package" version "2.2.6"
     id "scala"
     id "application"
+    id 'net.researchgate.release' version '2.0.2'
 }
 
 mainClassName = 'com.scopely.affqis.Main'
