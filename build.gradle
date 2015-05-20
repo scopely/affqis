@@ -1,4 +1,5 @@
 plugins {
+    id "nebula.os-package" version "2.2.6"
     id "scala"
     id "application"
 }
@@ -39,6 +40,24 @@ dependencies {
     compile 'io.spray:spray-json_2.11:1.3.1'
     testCompile 'org.specs2:specs2-core_2.11:3.6'
 }
+
+ospackage {
+    os = LINUX
+    into '/opt/affqis'
+    from 'build/install/affqis'
+    link('/usr/local/bin/affqis', '/opt/affqis/bin/affqis')
+}
+
+def rpmVersion = version.endsWith('-SNAPSHOT') ? version.split('-')[0] : version
+
+buildRpm {
+    version = rpmVersion
+}
+
+task buildDists
+buildDists.dependsOn(installDist, buildDeb, buildRpm)
+buildDeb.mustRunAfter(installDist)
+buildRpm.mustRunAfter(installDist)
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.4'
