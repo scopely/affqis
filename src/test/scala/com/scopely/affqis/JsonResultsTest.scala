@@ -50,9 +50,7 @@ class JsonResultsTest extends Specification with Mockito {
       }
     }
 
-    // Should try to make a BigInteger, but for now...
     mockrs.getLong(1) returns expectedLong
-
     mockrs.getInt(2) returns row._2
     mockrs.getBigDecimal(3) returns row._3
     mockrs.getBoolean(4) returns row._4
