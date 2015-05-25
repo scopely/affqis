@@ -16,15 +16,17 @@
 
 package com.scopely.affqis
 
-import java.sql.{DriverManager, Connection}
+import java.sql.{Connection, DriverManager}
 import java.util.concurrent.TimeUnit
 
 import com.fasterxml.jackson.databind.node.ObjectNode
 import org.slf4j.{Logger, LoggerFactory}
-import rx.lang.scala.schedulers._
 import rx.lang.scala.JavaConversions._
+import rx.lang.scala.schedulers._
 import ws.wamp.jawampa.WampClient.Status
-import ws.wamp.jawampa.{WampClientBuilder, WampClient}
+import ws.wamp.jawampa.{WampClient, WampClientBuilder}
+
+import scala.reflect.{ClassTag, classTag}
 
 /**
  * Base trait for DB clients.
@@ -58,13 +60,13 @@ trait WampDBClient {
   /**
    * Validates that args exist and are of the correct type.
    */
-  def hasArgs(arg: ObjectNode, expected: ArgSpec): Boolean = {
-    expected.forall { case (argName: String, argType: Class[_]) =>
+  def hasArgs[A: ClassTag](arg: ObjectNode, expected: ArgSpec): Boolean = {
+    expected.forall { case (argName: String, argType: Class[A @unchecked]) =>
       if (arg.has(argName)) {
         argType match {
-          case _: Class[String] => true
-          case _: Class[Int] => arg.canConvertToInt
-          case _: Class[Long] => arg.canConvertToLong
+          case _ if classTag[A] == classTag[String] => true
+          case _ if classTag[A] == classTag[Int] => arg.canConvertToInt
+          case _ if classTag[A] == classTag[Long] => arg.canConvertToLong
           case _ => false // I DUNNO WHAT'S HAPPENING
         }
       } else {
