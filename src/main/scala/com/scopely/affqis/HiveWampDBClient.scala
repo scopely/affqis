@@ -29,6 +29,7 @@ import ws.wamp.jawampa.{ApplicationError, Request, WampClient}
 
 import scala.collection.JavaConverters._
 import scala.collection.concurrent
+import scala.reflect.ClassTag
 import scala.util.Try
 
 /**
@@ -100,23 +101,23 @@ class HiveWampDBClient extends {
     val rs: Option[ResultSet] = Option(statement.getResultSet)
 
     rs.fold {
-      log.info(s"Sending update count to ${event}")
+      log.info(s"Sending update count to $event")
 
       // This is ugh but the type system doesn't much care for publish being overloaded
       // and us passing a combination of Strings and Ints.
       client.publish(event, "update_count", statement.getUpdateCount.asInstanceOf[Object])
       ()
     } { rs: ResultSet =>
-      log.info(s"Sending rows to ${event}")
+      log.info(s"Sending rows to $event")
       JsonResults(rs).foreach { row: String => client.publish(event, "row", row) }
       rs.close()
     }
 
-    log.info(s"Finished sending results to ${event}. Letting subscribers know")
+    log.info(s"Finished sending results to $event. Letting subscribers know")
     client.publish(event, "finished")
     req.reply()
 
-    log.debug(s"Cleaning up ${event}")
+    log.debug(s"Cleaning up $event")
     proc.unsubscribe()
   }
 
