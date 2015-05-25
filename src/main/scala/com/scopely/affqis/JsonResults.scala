@@ -16,9 +16,9 @@
 
 package com.scopely.affqis
 
-import java.sql.{ResultSet, ResultSetMetaData}
+import java.math.BigDecimal
 import java.sql.Types._
-import java.math.{BigInteger, BigDecimal}
+import java.sql.{ResultSet, ResultSetMetaData}
 
 import spray.json._
 

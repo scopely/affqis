@@ -16,15 +16,15 @@
 
 package com.scopely.affqis
 
-import java.sql.{DriverManager, Connection}
+import java.sql.{Connection, DriverManager}
 import java.util.concurrent.TimeUnit
 
 import com.fasterxml.jackson.databind.node.ObjectNode
 import org.slf4j.{Logger, LoggerFactory}
-import rx.lang.scala.schedulers._
 import rx.lang.scala.JavaConversions._
+import rx.lang.scala.schedulers._
 import ws.wamp.jawampa.WampClient.Status
-import ws.wamp.jawampa.{WampClientBuilder, WampClient}
+import ws.wamp.jawampa.{WampClient, WampClientBuilder}
 
 /**
  * Base trait for DB clients.
