@@ -12,7 +12,7 @@ import scala.util.Try
 @RunWith(classOf[JUnitRunner])
 class ResultSetIteratorTest extends Specification with Mockito {
 
-  def getMockResultSet() = {
+  def getMockResultSet = {
     val it = Seq(1, 2, 3).iterator
     val mockrs: ResultSet = mock[ResultSet]
     mockrs.next() answers { m => it.hasNext }
@@ -22,7 +22,7 @@ class ResultSetIteratorTest extends Specification with Mockito {
 
   "ResultSetIterator" >> {
     "should wrap a ResultSet" >> {
-      Try(new ResultSetIterator(getMockResultSet())) must beSuccessfulTry
+      Try(new ResultSetIterator(getMockResultSet)) must beSuccessfulTry
     }
 
     "should allow iteration" >> {

@@ -19,7 +19,7 @@ class JsonResultsTest extends Specification with Mockito {
     6 -> ("imastring", Types.VARCHAR, "varchar")
   )
 
-  def getMockResultSet() = {
+  def getMockResultSet = {
     val expectedLong = new java.lang.Long(1)
     val expectedDouble = java.math.BigDecimal.valueOf(500.393)
     val expectedDate = Date.valueOf("2015-01-01").toString
@@ -65,7 +65,7 @@ class JsonResultsTest extends Specification with Mockito {
 
   "JsonResults should" >> {
     "return json strings of all ResultSet rows" >> {
-      val rs = getMockResultSet()
+      val rs = getMockResultSet
       val expectedRow =
         """
           |[{"value":1,"type":"bigint","name":"imabigint"},
