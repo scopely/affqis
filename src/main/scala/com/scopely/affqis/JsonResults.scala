@@ -24,14 +24,13 @@ import spray.json._
 
 /**
  * Provides a convenient API to produce JSON from a ResultSet, with type metadata info.
- * @param rs A result set.
  */
 object JsonResults {
   /**
    * Converts an object to a JsValue using the specified function. If obj is null, JsNull is returned.
    * @param obj Some kind of object.
    * @param jsType Type converter function.
-   * @tparam T
+   * @tparam T Actual expected type of the value.
    * @return a JsValue for the value.
    */
   def toJsVal[T](obj: T, jsType: T => JsValue): JsValue = {
