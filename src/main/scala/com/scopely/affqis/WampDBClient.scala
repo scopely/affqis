@@ -77,9 +77,9 @@ trait WampDBClient {
     expected.forall { case (argName: String, argType: Class[A @unchecked]) =>
       if (arg.has(argName)) {
         argType match {
-          case _ if classTag[A] == classTag[String] => true
-          case _ if classTag[A] == classTag[Int] => arg.canConvertToInt
-          case _ if classTag[A] == classTag[Long] => arg.canConvertToLong
+          case _: Class[String @unchecked] if classTag[A] == classTag[String] => true
+          case _: Class[Int @unchecked] if classTag[A] == classTag[Int] => arg.get(argName).canConvertToInt
+          case _: Class[Long @unchecked] if classTag[A] == classTag[Long] => arg.get(argName).canConvertToLong
           case _ => false // I DUNNO WHAT'S HAPPENING
         }
       } else {
