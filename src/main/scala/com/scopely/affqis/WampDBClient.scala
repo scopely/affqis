@@ -262,11 +262,8 @@ trait WampDBClient {
 
         req.reply(event, proc)
       } recover {
-        case exn: SQLException =>
-          val traceStringWriter: StringWriter = new StringWriter()
-          val traceWriter: PrintWriter = new PrintWriter(traceStringWriter, true)
-          exn.printStackTrace(traceWriter)
-          val trace = traceStringWriter.getBuffer.toString
+        case exn: Exception =>
+          val trace = ExceptionUtils.getTrace(exn)
           log.error(trace)
           req.replyError("execution_error", id, trace)
       }
