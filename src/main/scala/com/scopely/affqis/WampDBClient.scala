@@ -27,11 +27,11 @@ import rx.lang.scala.JavaConversions._
 import rx.lang.scala.Subscription
 import rx.lang.scala.schedulers._
 import ws.wamp.jawampa.WampClient.Status
-import ws.wamp.jawampa.{Request, ApplicationError, WampClient, WampClientBuilder}
+import ws.wamp.jawampa.{ApplicationError, Request, WampClient, WampClientBuilder}
 
+import scala.collection.JavaConverters._
 import scala.collection.concurrent
 import scala.reflect.{ClassTag, classTag}
-import scala.collection.JavaConverters._
 import scala.util.Try
 
 /**
@@ -44,11 +44,6 @@ trait WampDBClient {
   private val log: Logger = LoggerFactory.getLogger(getClass)
   val scheduler: rx.Scheduler = NewThreadScheduler()
   
-  /**
-   * jdbc:<prefix>://...
-   */
-  def jdbcPrefix: String
-
   // Initialize our driver.
   Class forName driver
 
@@ -66,7 +61,8 @@ trait WampDBClient {
    *       A possible solution is to have an idle time out and if the connection
    *       isn't used or acked or something, fry it.
    */
-  val connections: concurrent.Map[String, Connection] = new ConcurrentHashMap[String, Connection]().asScala
+  val connections: concurrent.Map[String, DBConnection] =
+    new ConcurrentHashMap[String, DBConnection]().asScala
 
   type ArgSpec = Map[String, Class[_]]
 
@@ -91,11 +87,14 @@ trait WampDBClient {
   /**
    * Connect via JDBC to a database.
    */
-  def connectJdbc(user: String, host: String, port: Int, db: String, pass: String = ""): Connection = {
-    val jdbcURI: String =
-      s"jdbc:$jdbcPrefix://$host:$port/$db"
-    log.info(s"Establishing a connection to $jdbcURI")
-    DriverManager.getConnection(jdbcURI, user, pass)
+  def connectJdbc(uri: String): Connection = {
+    log.info(s"Establishing a connection to $uri")
+    DriverManager.getConnection(uri)
+  }
+
+  def connectJdbc(uri: String, user: String, pass: String = ""): Connection = {
+    log.info(s"Establishing a connection to $uri")
+    DriverManager.getConnection(uri, user, pass)
   }
 
   /**
@@ -113,56 +112,45 @@ trait WampDBClient {
     wampClient.open()
   }
 
-  /**
-   * Procedure function to connect to the database. Returns an id to the client that can be
-   * used to execute and close this connection later.
-   */
-  def connectProc(client: WampClient)(req: Request): Unit = {
-    val args: ObjectNode = req.keywordArguments()
-    val argSpec: ArgSpec = Map(
-      "user" -> classOf[String],
-      "port" -> classOf[Int],
-      "host" -> classOf[String]
-    )
-
-    if (hasArgs(args, argSpec)) {
-      val user: String = args.get("user").asText()
-      val host: String = args.get("host").asText()
-      val port: Int = args.get("port").asInt()
-
-      val database: String = if (args.has("database")) {
-        args.get("database").asText()
-      } else {
-        "default"
-      }
-
-      // Passwords aren't required all the time.
-      val pass: String = if (args.has("password")) {
-        args.get("password").asText()
-      } else {
-        ""
-      }
-
-      val id: String = UUID.randomUUID().toString
-
+  def registerConnection(req: Request)(connectFn: => DBConnection): Option[String] = {
+    Try(connectFn) map { conn: DBConnection =>
+      val id = UUID.randomUUID().toString
       log.info(s"Creating a new connection: $id")
-      val connection: Try[Connection] = Try(connectJdbc(user, host, port, database, pass))
-      connection.map { conn: Connection =>
-        connections += (id -> conn)
-        req.reply(id)
-        conn
-      } recover { case exn: SQLException =>
+      connections += (id -> conn)
+      req.reply(id)
+      Some(id)
+    } recover {
+      case exn: SQLException =>
         req.replyError("connect_error", exn.getMessage)
-      }
-    } else {
-      req.replyError(new ApplicationError(ApplicationError.INVALID_ARGUMENT))
-    }
+        None
+    } get
+  }
+
+  /**
+   * Reply with INVALID_ARGUMENT.
+   */
+  def invalidArgs(req: Request): Unit = {
+    req.replyError(new ApplicationError(ApplicationError.INVALID_ARGUMENT))
+  }
+
+  /**
+   * Executed with the request when a connection command comes in. This function must
+   * use the passed in arguments to create and register a Connection.
+   */
+  def handleConnect(client: WampClient)(req: Request): Unit
+
+  /**
+   * Close a JDBC connection. Override to change how connections get closed.
+   */
+  def onDisconnect(id: String, conn: DBConnection): Unit = {
+    log.info(s"Closing connection for id $id")
+    conn.connection.close()
   }
 
   /**
    * Procedure function for closing a jdbc connection by id.
    */
-  def disconnectProc(client: WampClient)(req: Request): Unit = {
+  def handleDisconnect(client: WampClient)(req: Request): Unit = {
     val args: ObjectNode = req.keywordArguments()
     val argSpec: ArgSpec = Map(
       "connectionId" -> classOf[String]
@@ -173,14 +161,11 @@ trait WampDBClient {
 
       connections.get(id).fold {
         req.reply(java.lang.Boolean.valueOf("false"))
-      } { conn: Connection =>
-        log.info(s"Closing connection for id $id")
-        conn.close()
+      } { conn: DBConnection =>
+        onDisconnect(id, conn)
         req.reply(java.lang.Boolean.valueOf("true"))
       }
-    } else {
-      req.replyError(new ApplicationError(ApplicationError.INVALID_ARGUMENT))
-    }
+    } else invalidArgs(req)
   }
 
   /**
@@ -225,7 +210,7 @@ trait WampDBClient {
    * that until Jawampa supports Wamp V2 Advanced Profile, there is no way to get
    * subscribers, so we can't even poll for this!
    */
-  def executeProc(client: WampClient)(req: Request): Unit = {
+  def handleExecute(client: WampClient)(req: Request): Unit = {
     val args: ObjectNode = req.keywordArguments()
     val argSpec: ArgSpec = Map(
       "connectionId" -> classOf[String],
@@ -234,7 +219,7 @@ trait WampDBClient {
 
     if (hasArgs(args, argSpec)) {
       val connectionId: String = args.get("connectionId").asText()
-      val connection: Connection = connections(connectionId)
+      val connection: Connection = connections(connectionId).connection
       val sql: String = args.get("sql").asText()
 
       log.info(s"Executing SQL on connection $connectionId")
@@ -245,11 +230,12 @@ trait WampDBClient {
       val event: String = "results." + id
       val proc: String = "stream_results." + id
 
-      val statement: PreparedStatement = connection.prepareStatement(sql)
+      val result: Try[(Boolean, PreparedStatement)] = Try {
+        val statement = connection.prepareStatement(sql)
+        (statement.execute(), statement)
+      }
 
-      val result: Try[Boolean] = Try(statement.execute())
-
-      result.map { wasQuery: Boolean =>
+      result.map { case (wasQuery, statement) =>
         // We're making sub lazy because we're passing it to a function in the definition
         // itself, which causes a compile error because it's a forward reference at that point.
         // Making it lazy and then immediately realizing it seems to be the way with the least
@@ -275,18 +261,18 @@ trait WampDBClient {
   def apply(): Unit = {
     Runtime.getRuntime.addShutdownHook(new Thread {
       log.info("Closing all open connections...")
-      connections.values foreach(_.close())
+      connections.foreach { case (id, conn) => onDisconnect(id, conn) }
     })
 
     wampConnect { client: WampClient =>
       log.info(s"Registering $realm JDBC connect procedure")
-      client.registerProcedure("connect").subscribe(connectProc(client) _)
+      client.registerProcedure("connect").subscribe(handleConnect(client) _)
 
       log.info(s"Registering $realm JDBC execute procedure")
-      client.registerProcedure("execute").subscribe(executeProc(client) _)
+      client.registerProcedure("execute").subscribe(handleExecute(client) _)
 
       log.info(s"Registering $realm JDBC disconnect procedure")
-      client.registerProcedure("disconnect").subscribe(disconnectProc(client) _)
+      client.registerProcedure("disconnect").subscribe(handleDisconnect(client) _)
     }
   }
 }

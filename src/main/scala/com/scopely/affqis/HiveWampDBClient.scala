@@ -16,11 +16,37 @@
 
 package com.scopely.affqis
 
+import java.sql.Connection
+
+import com.fasterxml.jackson.databind.node.ObjectNode
+import ws.wamp.jawampa.{WampClient, Request}
+
 /**
  * Implementation of WampDBClient for HiveServer2.
  */
 class HiveWampDBClient extends {
   val driver: String = "org.apache.hive.jdbc.HiveDriver"
   val realm: String = "hive"
-  val jdbcPrefix: String = "hive2"
-} with WampDBClient
+} with WampDBClient {
+
+  case class HiveDBConnection(connection: Connection) extends DBConnection
+  def handleConnect(client: WampClient)(req: Request): Unit = {
+    val args: ObjectNode = req.keywordArguments()
+
+    if (hasArgs(args, Map(
+      "user" -> classOf[String],
+      "port" -> classOf[Int],
+      "host" -> classOf[String]
+    ))) {
+      val user: String = args.get("user").asText()
+      val host: String = args.get("host").asText()
+      val port: Int = args.get("port").asInt()
+      val database: String = Option(args.get("database")) map {_.asText()} getOrElse "default"
+      val pass: String = Option(args.get("password")) map {_.asText()} getOrElse ""
+
+      val jdbcURI: String = s"jdbc:hive2://$host:$port/$database"
+
+      registerConnection(req) { new HiveDBConnection(connectJdbc(jdbcURI, user, pass)) }
+    } else invalidArgs(req)
+  }
+}
