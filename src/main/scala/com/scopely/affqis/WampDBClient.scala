@@ -258,7 +258,7 @@ trait WampDBClient {
     }
   }
 
-  def apply(): Unit = {
+  def apply(cb: => Unit): Unit = {
     Runtime.getRuntime.addShutdownHook(new Thread {
       log.info("Closing all open connections...")
       connections.foreach { case (id, conn) => onDisconnect(id, conn) }
@@ -273,6 +273,10 @@ trait WampDBClient {
 
       log.info(s"Registering $realm JDBC disconnect procedure")
       client.registerProcedure("disconnect").subscribe(handleDisconnect(client) _)
+
+      cb
     }
   }
+
+  def apply(): Unit = { apply {} }
 }
