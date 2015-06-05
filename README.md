@@ -1,6 +1,6 @@
 # Affqis (A Fancy Federated Query Interaction Server)
 
-[![Build Status](https://travis-ci.org/scopely/affqis.svg?branch=travis)](https://travis-ci.org/scopely/affqis)
+[![Build Status](https://travis-ci.org/scopely/affqis.svg)](https://travis-ci.org/scopely/affqis)
 
 Affqis is a unified JDBC bastion server, using WAMP as a means of communicating with clients.
 The idea is that you talk to it to connect to a server and run queries and it parses and
