@@ -46,7 +46,9 @@ class HiveWampDBClient extends {
 
       val jdbcURI: String = s"jdbc:hive2://$host:$port/$database"
 
-      registerConnection(req) { new HiveDBConnection(connectJdbc(jdbcURI, user, pass)) }
+      registerConnection(req) {
+        new HiveDBConnection(DBConnection.connect(jdbcURI, user, pass))
+      }
     } else invalidArgs(req)
   }
 }
