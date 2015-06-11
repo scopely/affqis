@@ -80,5 +80,3 @@ task specs2(type: JavaExec, dependsOn: testClasses) {
 task wrapper(type: Wrapper) {
     gradleVersion = '2.4'
 }
-
-test.outputs.upToDateWhen { false }
