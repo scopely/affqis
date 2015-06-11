@@ -99,12 +99,16 @@ trait WampDBClient {
     wampClient.open()
   }
 
+  def scheduleDisconnect(connection: DBConnection): Unit = {
+    connection.scheduleDisconnect(idleTimeout) { connections -= connection.id.toString }
+  }
+
   def registerConnection(req: Request)(connectFn: => DBConnection): Option[String] = {
     Try(connectFn) map { conn: DBConnection =>
       val id = conn.id.toString
       log.info(s"Creating a new connection: $id")
       connections += (id -> conn)
-      conn.scheduleDisconnect(idleTimeout) { connections -= id }
+      scheduleDisconnect(conn)
       req.reply(id)
       Some(id)
     } recover {
