@@ -11,7 +11,7 @@ trait WithRouterAndClient extends Scope with After {
   def dbName: String
   val router = JawampaRouter(Seq("derby"))
 
-  def after() = {
+  def after = {
     println("Cleaning up router/client...")
     dbc.wampClient.close()
     router.server.stop()
