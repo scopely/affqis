@@ -29,12 +29,12 @@ case class JawampaRouter(server: SimpleWampWebsocketListener, router: WampRouter
 
 object JawampaRouter {
   val log: Logger = LoggerFactory.getLogger(getClass)
-  val routerBuilder: WampRouterBuilder = new WampRouterBuilder()
 
   def addRealm(builder: WampRouterBuilder, realm: String): WampRouterBuilder =
     builder.addRealm(realm)
 
   def apply(realms: Seq[String]): JawampaRouter = {
+    val routerBuilder: WampRouterBuilder = new WampRouterBuilder()
     val router: WampRouter = realms.foldLeft(routerBuilder) {addRealm}.build()
     val server: SimpleWampWebsocketListener =
       new SimpleWampWebsocketListener(router, URI.create(RouterConfig.url), null)
