@@ -16,6 +16,8 @@ trait DBConnection {
   val id: UUID = UUID.randomUUID()
   val janitor: Timer = new Timer()
 
+  private var janitorTask: Option[TimerTask] = None
+
   /**
    * Close a JDBC connection. Override to change how connections get closed.
    */
@@ -29,9 +31,8 @@ trait DBConnection {
     scheduleDisconnect(1000 * 60 * 30)(afterTimeout)
 
   def scheduleDisconnect(timeout: Int)(afterTimeout: => Unit): Unit = {
-    janitor.cancel()
-
-    val task: TimerTask = new TimerTask {
+    janitorTask foreach {_.cancel()}
+    val task = new TimerTask {
       override def run(): Unit = {
         log.info(s"Killing connection $id due to idle timeout...")
         onDisconnect()
@@ -39,6 +40,7 @@ trait DBConnection {
       }
     }
 
+    janitorTask = Some(task)
     janitor.schedule(task, timeout)
   }
 }
