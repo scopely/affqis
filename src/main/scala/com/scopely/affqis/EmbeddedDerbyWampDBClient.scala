@@ -19,7 +19,9 @@ class EmbeddedDerbyWampDBClient extends {
     if (hasArgs(args, Map("database" -> classOf[String]))) {
       val database: String = args.get("database").asText()
       registerConnection(req) {
-        new DerbyDBConnection(connectJdbc(s"jdbc:derby:$database;create=true"), database)
+        val connection: Connection =
+          DBConnection.connect(s"jdbc:derby:$database;create=true")
+        new DerbyDBConnection(connection, database)
       }
     } else invalidArgs(req)
   }

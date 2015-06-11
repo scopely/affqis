@@ -16,7 +16,6 @@
 
 package com.scopely.affqis
 
-import java.io.{PrintWriter, StringWriter}
 import java.sql._
 import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
@@ -40,6 +39,7 @@ import scala.util.Try
 trait WampDBClient {
   def driver: String
   def realm: String
+  def idleTimeout: Int = 1000 * 60 * 30
 
   private val log: Logger = LoggerFactory.getLogger(getClass)
   val scheduler: rx.Scheduler = NewThreadScheduler()
@@ -85,19 +85,6 @@ trait WampDBClient {
   }
 
   /**
-   * Connect via JDBC to a database.
-   */
-  def connectJdbc(uri: String): Connection = {
-    log.info(s"Establishing a connection to $uri")
-    DriverManager.getConnection(uri)
-  }
-
-  def connectJdbc(uri: String, user: String, pass: String = ""): Connection = {
-    log.info(s"Establishing a connection to $uri")
-    DriverManager.getConnection(uri, user, pass)
-  }
-
-  /**
    * Set up our callback when this guy is connected.
    */
   def wampConnect(callback: WampClient => Unit) = {
@@ -112,11 +99,16 @@ trait WampDBClient {
     wampClient.open()
   }
 
+  def scheduleDisconnect(connection: DBConnection): Unit = {
+    connection.scheduleDisconnect(idleTimeout) { connections -= connection.id.toString }
+  }
+
   def registerConnection(req: Request)(connectFn: => DBConnection): Option[String] = {
     Try(connectFn) map { conn: DBConnection =>
-      val id = UUID.randomUUID().toString
+      val id = conn.id.toString
       log.info(s"Creating a new connection: $id")
       connections += (id -> conn)
+      scheduleDisconnect(conn)
       req.reply(id)
       Some(id)
     } recover {
@@ -140,14 +132,6 @@ trait WampDBClient {
   def handleConnect(client: WampClient)(req: Request): Unit
 
   /**
-   * Close a JDBC connection. Override to change how connections get closed.
-   */
-  def onDisconnect(id: String, conn: DBConnection): Unit = {
-    log.info(s"Closing connection for id $id")
-    conn.connection.close()
-  }
-
-  /**
    * Procedure function for closing a jdbc connection by id.
    */
   def handleDisconnect(client: WampClient)(req: Request): Unit = {
@@ -162,7 +146,7 @@ trait WampDBClient {
       connections.get(id).fold {
         req.reply(java.lang.Boolean.valueOf("false"))
       } { conn: DBConnection =>
-        onDisconnect(id, conn)
+        conn.onDisconnect()
         req.reply(java.lang.Boolean.valueOf("true"))
       }
     } else invalidArgs(req)
@@ -219,7 +203,12 @@ trait WampDBClient {
 
     if (hasArgs(args, argSpec)) {
       val connectionId: String = args.get("connectionId").asText()
-      val connection: Connection = connections(connectionId).connection
+      val connectionInfo: DBConnection = connections(connectionId)
+
+      // Reset connection idle timeout.
+      scheduleDisconnect(connectionInfo)
+
+      val connection: Connection = connectionInfo.connection
       val sql: String = args.get("sql").asText()
 
       log.info(s"Executing SQL on connection $connectionId")
@@ -261,7 +250,7 @@ trait WampDBClient {
   def apply(cb: => Unit): Unit = {
     Runtime.getRuntime.addShutdownHook(new Thread {
       log.info("Closing all open connections...")
-      connections.foreach { case (id, conn) => onDisconnect(id, conn) }
+      connections.foreach { case (id, conn) => conn.onDisconnect() }
     })
 
     wampConnect { client: WampClient =>
