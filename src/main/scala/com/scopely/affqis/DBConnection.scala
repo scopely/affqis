@@ -21,6 +21,7 @@ trait DBConnection {
    */
   def onDisconnect(): Unit = {
     log.info(s"Closing connection for id ${id.toString}")
+    janitor.cancel()
     connection.close()
   }
 
