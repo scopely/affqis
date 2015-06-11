@@ -1,20 +1,17 @@
 package com.scopely.affqis
 
-import java.io.File
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import org.apache.commons.io.FileUtils
 import org.junit.runner.RunWith
-import org.specs2.matcher.Scope
-import org.specs2.mutable.{After, Specification}
+import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
-import rx.lang.scala.schedulers.NewThreadScheduler
 import rx.lang.scala.JavaConversions._
+import rx.lang.scala.schedulers.NewThreadScheduler
 import ws.wamp.jawampa.WampClient.Status
-import ws.wamp.jawampa.{Reply, WampClientBuilder, WampClient}
+import ws.wamp.jawampa.{Reply, WampClient, WampClientBuilder}
 
-import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Promise}
 
 @RunWith(classOf[JUnitRunner])
 class IdleTimeoutTest extends Specification {
