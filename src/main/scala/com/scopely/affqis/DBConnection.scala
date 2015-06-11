@@ -13,8 +13,8 @@ trait DBConnection {
 
   def connection: Connection
 
-  def id: UUID = UUID.randomUUID()
-  def janitor: Timer = new Timer()
+  val id: UUID = UUID.randomUUID()
+  val janitor: Timer = new Timer()
 
   /**
    * Close a JDBC connection. Override to change how connections get closed.
