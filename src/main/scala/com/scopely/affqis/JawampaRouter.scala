@@ -25,7 +25,14 @@ import ws.wamp.jawampa.{WampRouter, WampRouterBuilder}
 /**
  * Router management.
  */
-case class JawampaRouter(server: SimpleWampWebsocketListener, router: WampRouter)
+case class JawampaRouter(server: SimpleWampWebsocketListener, router: WampRouter) {
+  val log: Logger = LoggerFactory.getLogger(getClass)
+  def destroy(): Unit = {
+    log.debug("Cleaning up router/server...")
+    server.stop()
+    router.close()
+  }
+}
 
 object JawampaRouter {
   val log: Logger = LoggerFactory.getLogger(getClass)
