@@ -203,7 +203,12 @@ trait WampDBClient {
 
     if (hasArgs(args, argSpec)) {
       val connectionId: String = args.get("connectionId").asText()
-      val connection: Connection = connections(connectionId).connection
+      val connectionInfo: DBConnection = connections(connectionId)
+
+      // Reset connection idle timeout.
+      scheduleDisconnect(connectionInfo)
+
+      val connection: Connection = connectionInfo.connection
       val sql: String = args.get("sql").asText()
 
       log.info(s"Executing SQL on connection $connectionId")
