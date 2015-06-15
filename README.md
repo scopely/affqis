@@ -33,10 +33,10 @@ project, in
 Affqis WAMP procedures take keyword arguments for all procedures and events.
 Affqis's little protocol has a flow that looks like the following:
 
-1) Connect to the Affqis websocket at `ws://$HOST:$PORT/affqis`.
-2) Configure for which realms (databases correspond to realms) you want to access.
+1. Connect to the Affqis websocket at `ws://$HOST:$PORT/affqis`.
+2. Configure for which realms (databases correspond to realms) you want to access.
    Right now, only hive is supported.
-3) Call the WAMP `connect` procedure with the required parameters for the database
+3. Call the WAMP `connect` procedure with the required parameters for the database
    you're connecting to. Standard keyword parameters are:
    
    * `user` -> String
@@ -51,7 +51,7 @@ Affqis's little protocol has a flow that looks like the following:
    
    The result of this procedure will be a UUID, and this unique ID corresponds to
    your JDBC connection object internally. Hold on to it.
-4) Call the `execute` procedure. This guy takes the following keyword parameters:
+4. Call the `execute` procedure. This guy takes the following keyword parameters:
 
    * `connectionId` -> String | ID returned from `connect`
    * `sql` -> String | A single SQL statement with no semi-colon. See Scopely's
@@ -66,7 +66,7 @@ Affqis's little protocol has a flow that looks like the following:
    will either be two strings, `"row"` and a string-serialized json object with row
    data that you should parse and work with, or just "finished" when there are no
    more rows to stream.
-5) When you're finished with your connection you should call the `disconnect` procedure
+5. When you're finished with your connection you should call the `disconnect` procedure
    with your `connectionId`. It'll return `true` if successful. For the time being,
    connections will not get cleaned up without an explicit disconnect. They'll remain in
    memory until a restart or a shutdown. We should give these an idle timeout.
